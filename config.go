@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 )
 
@@ -14,13 +15,15 @@ type ConfigurationManager interface {
 	Clear()
 	ToJSON() (string, error)
 	FromJSON(value string) error
-	SaveToFile(filename string) error
-	LoadFromFile(filename string) error
+	SetFileName(name string)
+	Save() error
+	Load() error
 }
 
 // Configuration implements ConfigurationManager interface.
 type Configuration struct {
-	data map[string]any
+	data     map[string]any
+	fileName string // Field to store the associated file name
 }
 
 // NewConfiguration creates a new configuration instance.
@@ -28,44 +31,49 @@ func NewConfiguration() *Configuration {
 	return &Configuration{data: make(map[string]any)}
 }
 
+// SetFileName sets the file name for the configuration.
+func (conf *Configuration) SetFileName(name string) {
+	conf.fileName = name
+}
+
 // Exists checks if a key exists in the configuration.
-func (c *Configuration) Exists(key string) bool {
-	_, exists := c.data[key]
+func (conf *Configuration) Exists(key string) bool {
+	_, exists := conf.data[key]
 	return exists
 }
 
 // SetValue assigns a value to a key if not already set.
-func (c *Configuration) SetValue(key string, value any) bool {
-	if !c.Exists(key) {
-		c.data[key] = value
+func (conf *Configuration) SetValue(key string, value any) bool {
+	if !conf.Exists(key) {
+		conf.data[key] = value
 		return true
 	}
 	return false
 }
 
 // GetValue retrieves the value associated with a key.
-func (c *Configuration) GetValue(key string) (any, bool) {
-	value, exists := c.data[key]
+func (conf *Configuration) GetValue(key string) (any, bool) {
+	value, exists := conf.data[key]
 	return value, exists
 }
 
 // Delete removes a key from the configuration.
-func (c *Configuration) Delete(key string) bool {
-	if c.Exists(key) {
-		delete(c.data, key)
+func (conf *Configuration) Delete(key string) bool {
+	if conf.Exists(key) {
+		delete(conf.data, key)
 		return true
 	}
 	return false
 }
 
 // Clear removes all keys from the configuration.
-func (c *Configuration) Clear() {
-	c.data = make(map[string]any)
+func (conf *Configuration) Clear() {
+	conf.data = make(map[string]any)
 }
 
 // ToJSON converts the configuration to a JSON string.
-func (c *Configuration) ToJSON() (string, error) {
-	jsonData, err := json.Marshal(c.data)
+func (conf *Configuration) ToJSON() (string, error) {
+	jsonData, err := json.Marshal(conf.data)
 	if err != nil {
 		return "", err
 	}
@@ -73,29 +81,35 @@ func (c *Configuration) ToJSON() (string, error) {
 }
 
 // FromJSON loads configuration from a JSON string.
-func (c *Configuration) FromJSON(value string) error {
+func (conf *Configuration) FromJSON(value string) error {
 	newData := make(map[string]any)
 	if err := json.Unmarshal([]byte(value), &newData); err != nil {
 		return err
 	}
-	c.data = newData
+	conf.data = newData
 	return nil
 }
 
-// SaveToFile saves the configuration to a file.
-func (c *Configuration) SaveToFile(filename string) error {
-	jsonData, err := c.ToJSON()
+// Save writes the configuration to the file set by SetFileName.
+func (conf *Configuration) Save() error {
+	if conf.fileName == "" {
+		return fmt.Errorf("file name not set")
+	}
+	jsonData, err := conf.ToJSON()
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filename, []byte(jsonData), 0644)
+	return os.WriteFile(conf.fileName, []byte(jsonData), 0644)
 }
 
-// LoadFromFile loads the configuration from a file.
-func (c *Configuration) LoadFromFile(filename string) error {
-	fileData, err := os.ReadFile(filename)
+// Load reads the configuration from the file set by SetFileName.
+func (conf *Configuration) Load() error {
+	if conf.fileName == "" {
+		return fmt.Errorf("file name not set")
+	}
+	fileData, err := os.ReadFile(conf.fileName)
 	if err != nil {
 		return err
 	}
-	return c.FromJSON(string(fileData))
+	return conf.FromJSON(string(fileData))
 }
